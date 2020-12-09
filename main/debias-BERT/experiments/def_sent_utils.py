@@ -9,8 +9,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.par
 
 np.random.seed(42)
 
-words2 = [["spokesman", "spokeswoman"],["catholic_priest", "nun"], ["dad", "mom"], ["men", "women"], ["councilman", "councilwoman"], ["grandpa", "grandma"], 
-["grandsons", "granddaughters"], ["uncle", "aunt"], 
+words2 = [["spokesman", "spokeswoman"],["catholic_priest", "nun"], ["dad", "mom"], ["councilman", "councilwoman"], ["grandpa", "grandma"], 
+["grandsons", "granddaughters"], ["uncle", "aunt"], ["He","She"], ["His","Her"], 
 ["wives", "husbands"], ["father", "mother"], ["grandpa", "grandma"], ["he", "she"], ["boy", "girl"], ["boys", "girls"], 
 ["brother", "sister"], ["brothers", "sisters"], ["businessman", "businesswoman"], ["chairman", "chairwoman"],
 ["congressman", "congresswoman"], ["dad", "mom"], ["dads", "moms"], ["dudes", "gals"], ["ex_girlfriend", "ex_boyfriend"], 
@@ -34,6 +34,9 @@ DIRECTORY = '../text_corpus/'
 
 GENDER = 0
 RACE = 1
+from nltk.tag import pos_tag
+from tqdm import tqdm
+import re
 
 def get_pom():
 	pom_loc = os.path.join(DIRECTORY, 'POM/')
@@ -42,9 +45,9 @@ def get_pom():
 		if file.endswith(".txt"):
 			f = open(os.path.join(pom_loc, file), 'r')
 			data = f.read()
-			for sent in data.lower().split('.'):
+			for sent in data.split('.'):
 				sent = sent.strip()
-				all_sent.append(sent.lower())
+				all_sent.append(sent)
 				
 	return all_sent
 def get_rest(filename):
@@ -52,9 +55,9 @@ def get_rest(filename):
 	all_sent =[]	
 	f = open(os.path.join(DIRECTORY, filename), 'r')
 	data = f.read()
-	for sent in data.lower().split('\n'):
+	for sent in data.split('\n'):
 		sent = sent.strip()
-		all_sent.append(sent.lower())
+		all_sent.append(sent)
 	return all_sent
 def get_sst():
 	all_sent = []
@@ -64,7 +67,7 @@ def get_sst():
 			sent = ' '.join(sent)
 		except:
 			pass
-		all_sent.append(sent.lower())
+		all_sent.append(sent.splitlines()[0])
 
 	return all_sent
 
@@ -72,19 +75,25 @@ def gen_check(sent, count):
 	mc = []
 	fc = []
 	words = sent.split()
+	if len(words) > 30:
+		return [],-1
 	for i in range(len(words)):
 		word = words[i]
 		if word in male_words.keys():
 			mc.append(i)
 		elif word in fmale_words.keys():
 			fc.append(i)
-	if len(mc)*len(fc) ==0 and (len(mc)+len(fc))==count:
+	if len([word for word,pos in pos_tag(words) if pos == 'NNP'])!=0:
+		return ([],-1)
+	if len(mc)*len(fc) ==0 and (len(mc)+len(fc))>=1 and (len(mc)+len(fc))<=count:
 		return (fc,0) if len(fc)!=0 else (mc,1)
 	return ([],-1)
 
 def work_on(sents):
 	triples =[]
-	for sent in sents:
+	for i in tqdm(range(len(sents))):
+		sent = sents[i]
+		sent = re.sub(r'[^\w\s]', '', sent) 
 		pos,gen = gen_check(sent,1)
 		if gen==-1:
 			continue
@@ -111,16 +120,21 @@ def get_single_domain(domain):
 	return gender
 
 def get_all():
-	domains = ["reddit", "sst", "wikitext", "pom", "meld", "news_200"] #, "yelp_review_10mb"] # "news_200"]
+	domains =  ["yelp_review_10mb", "sst", "wikitext", "pom", "meld","news_200" ] # "news_200"]
 	print("Get data from {}".format(domains))
 	all_data = dict({})
+	all_data['all'] = {'m':[],'f':[],'idx':[]}
 	for domain in domains:
-		all_data[domain] = {'m':[],'f':[],'idx':[]}
+		
 		triples = get_single_domain(domain)
+		
 		for x,y,z in triples:
-			all_data[domain]['m'].append(x)
-			all_data[domain]['f'].append(y)
-			all_data[domain]['idx'].append(z)
+			if x not in all_data['all']['m']: 
+				all_data['all']['m'].append(x)
+				all_data['all']['f'].append(y)
+				all_data['all']['idx'].append(z)
+		print(len(all_data['all']['m']))
+
 	return all_data
 
 
